@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 # The Magnatic field intensity (North, East, Down)/nT
 Mag = np.array((27735, -3361, 47025))
 gravity = 9.8
@@ -108,20 +108,20 @@ class UAV(object):
         return np.row_stack((ax, ay, az))
 
     def getAltitudeCab(self, t):
-        if np.size(t)>1:
-            t=t[0]
-            print('Only a scalar t is allowed, the following calculation will set t = t[0] =',t,'.')
-            
-        eF=self.getV(t).T
-        eF=eF/np.linalg.norm(eF,None,1)
-           
-        aInertial_a=-self.getA(t).T
-        aInertial_a[0,2]=aInertial_a[0,2]-gravity
-        eL=np.cross(eF,aInertial_a)
-        eL=eL/np.linalg.norm(eL,None,1)
+        if np.size(t) > 1:
+            t = t[0]
+            print('Only a scalar t is allowed, the following calculation will set t = t[0] =', t, '.')
 
-        eT=np.cross(eF,eL)
-        return np.row_stack((eF,eL,eT)).T
+        eF = self.getV(t).T
+        eF = eF/np.linalg.norm(eF, None, 1)
+
+        aInertial_a = -self.getA(t).T
+        aInertial_a[0, 2] = aInertial_a[0, 2]-gravity
+        eL = np.cross(eF, aInertial_a)
+        eL = eL/np.linalg.norm(eL, None, 1)
+
+        eT = np.cross(eF, eL)
+        return np.row_stack((eF, eL, eT)).T
 
     def getAltitudeQab(self, t):
         if np.size(t)>1:
@@ -131,7 +131,7 @@ class UAV(object):
         return DCMToQuaternion(getAltitudeCab(t))
 
     def getAngularRate_ba_b(self, t):
-        Theta=np.matmul(self.getAltitudeCab(t).T,(self.getAltitudeCab(t+0.0005)-self.getAltitudeCab(t-0.0005))/0.001)
+        Theta=np.dot(self.getAltitudeCab(t).T,(self.getAltitudeCab(t+0.0005)-self.getAltitudeCab(t-0.0005))/0.001)
 
         return np.array((Theta[2,1], Theta[0,2], Theta[1,0]))
 
@@ -142,7 +142,7 @@ class UAV(object):
             #a_b = Cba * a_a 
             aInertial_a=-self.getA(t)
             aInertial_a[2]=aInertial_a[2]-gravity
-            IMUdata[0:3,i]=np.ravel(np.matmul(self.getAltitudeCab(t).T, aInertial_a))+np.random.normal(0,0.05,3)
+            IMUdata[0:3,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, aInertial_a))+np.random.normal(0,0.05,3)
             IMUdata[3:6,i]=np.ravel(self.getAngularRate_ba_b(t))+np.random.normal(0,0.014,3)
 
         return IMUdata
@@ -150,7 +150,7 @@ class UAV(object):
     def Magmeasure(self,T):
         Magdata=np.empty((3,np.size(T)))
         for i, t in enumerate(T):
-            Magdata[:,i]=np.ravel(np.matmul(self.getAltitudeCab(t).T, Mag))+np.random.normal(0, 350, 3)
+            Magdata[:,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, Mag))+np.random.normal(0, 350, 3)
         
         return Magdata
 
@@ -176,9 +176,9 @@ class StateEstimator(object):
             self.Qab = altitude/np.linalg.norm(altitude)
             if altitude[0]<0:
                 self.Qab = -self.Qab
-            # If we get a Direction Cosine Matrix to represent the altitude
-            elif altitude.shape == (3,3):
-                self.Qab = DCMToQuaternion(DCMorthonormalization(altitude))
+        # If we get a Direction Cosine Matrix to represent the altitude
+        elif altitude.shape == (3,3):
+            self.Qab = DCMToQuaternion(DCMorthonormalization(altitude))
 
     def GetAltitudeQ(self):
         return self.Qab
@@ -211,5 +211,5 @@ class StateEstimator(object):
         self.Qab = np.array((1.0, 0.0, 0.0, 0.0))
         self.t = 0.0
 
-    def UpdateState(self, IMU, Mag=None, GPS=None, UWB=None):
+    def UpdateState(self, IMU, Time, Mag=None, GPS=None, UWB=None):
         pass
