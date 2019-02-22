@@ -124,11 +124,11 @@ class UAV(object):
         return np.row_stack((eF, eL, eT)).T
 
     def getAltitudeQab(self, t):
-        if np.size(t)>1:
-            t=t[0]
-            print('Only a scalar t is allowed, the following calculation will set t = t[0] =',t,'.')
-     
-        return DCMToQuaternion(getAltitudeCab(t))
+        if np.size(t) > 1:
+            t = t[0]
+            print('Only a scalar t is allowed, the following calculation will set t = t[0] =', t, '.')
+
+        return DCMToQuaternion(self.getAltitudeCab(t))
 
     def getAngularRate_ba_b(self, t):
         Theta=np.dot(self.getAltitudeCab(t).T,(self.getAltitudeCab(t+0.0005)-self.getAltitudeCab(t-0.0005))/0.001)
@@ -137,20 +137,31 @@ class UAV(object):
 
     def IMUmeasure(self,T):
         #Add zero-mean Gausian noise to the acceleration and angular rate measurement data according to the datasheet.
-        IMUdata=np.empty((6,np.size(T)))
-        for i, t in enumerate(T):
-            #a_b = Cba * a_a 
-            aInertial_a=-self.getA(t)
+        N = np.size(T)
+        IMUdata=np.empty((6, N))
+        if N < 2:
+            aInertial_a=-self.getA(T)
             aInertial_a[2]=aInertial_a[2]-gravity
-            IMUdata[0:3,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, aInertial_a))+np.random.normal(0,0.05,3)
-            IMUdata[3:6,i]=np.ravel(self.getAngularRate_ba_b(t))+np.random.normal(0,0.014,3)
+            IMUdata[0:3,0]=np.ravel(np.dot(self.getAltitudeCab(T).T, aInertial_a))+np.random.normal(0,0.05,3)
+            IMUdata[3:6,0]=np.ravel(self.getAngularRate_ba_b(T))+np.random.normal(0,0.014,3)
+        else:
+            for i, t in enumerate(T):
+                #a_b = Cba * a_a 
+                aInertial_a=-self.getA(t)
+                aInertial_a[2]=aInertial_a[2]-gravity
+                IMUdata[0:3,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, aInertial_a))+np.random.normal(0,0.05,3)
+                IMUdata[3:6,i]=np.ravel(self.getAngularRate_ba_b(t))+np.random.normal(0,0.014,3)
 
         return IMUdata
 
     def Magmeasure(self,T):
-        Magdata=np.empty((3,np.size(T)))
-        for i, t in enumerate(T):
-            Magdata[:,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, Mag))+np.random.normal(0, 350, 3)
+        N = np.size(T)
+        Magdata=np.empty((3, N))
+        if N < 2:
+            Magdata[:,0]=np.ravel(np.dot(self.getAltitudeCab(T).T, Mag))+np.random.normal(0, 350, 3)
+        else:
+            for i, t in enumerate(T):
+                Magdata[:,i]=np.ravel(np.dot(self.getAltitudeCab(t).T, Mag))+np.random.normal(0, 350, 3)
         
         return Magdata
 
@@ -212,4 +223,6 @@ class StateEstimator(object):
         self.t = 0.0
 
     def UpdateState(self, IMU, Time, Mag=None, GPS=None, UWB=None):
-        pass
+        phy=IMU[3:6, 0]
+        physquare_8=np.dot(phy,phy)/8.0
+        qab=np.hstack([1-physquare_8, (physquare_8/6.0-0.5)*phy])
